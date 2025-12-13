@@ -5,10 +5,9 @@ import zipfile
 import logging
 from io import BytesIO
 from datetime import datetime
-import asyncio
 
 import qrcode
-from flask import Flask, request
+from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
@@ -130,41 +129,31 @@ async def getdata(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(zip_path)
 
 # ===============================
-# FLASK + WEBHOOK
+# FASTAPI + TELEGRAM
 # ===============================
-flask_app = Flask(__name__)
+app = FastAPI()
 tg_app = Application.builder().token(BOT_TOKEN).build()
 
-# Yangi event loop
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
+# Handlerlar qo‘shish
+tg_app.add_handler(CommandHandler("start", start))
+tg_app.add_handler(CommandHandler("allow", allow_user))
+tg_app.add_handler(CommandHandler("getdata", getdata))
+tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr))
 
-# Webhook route (synchronous)
-@flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.json, tg_app.bot)
-    # Synchronous tarzda update’ni ishlatish
-    loop.run_until_complete(tg_app.process_update(update))
-    return "OK"
-
-# Webhook set qilish
-async def set_webhook():
+@app.on_event("startup")
+async def on_startup():
+    await tg_app.initialize()
+    await tg_app.start()
     await tg_app.bot.set_webhook(f"{PUBLIC_URL}/{BOT_TOKEN}")
     logger.info("Webhook o‘rnatildi ✅")
 
+@app.post(f"/{BOT_TOKEN}")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, tg_app.bot)
+    await tg_app.process_update(update)
+    return {"ok": True}
+
 # ===============================
-# START SERVER
+# RUN: uvicorn main:app --host 0.0.0.0 --port 8080
 # ===============================
-def main():
-    tg_app.add_handler(CommandHandler("start", start))
-    tg_app.add_handler(CommandHandler("allow", allow_user))
-    tg_app.add_handler(CommandHandler("getdata", getdata))
-    tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr))
-
-    # Webhook o‘rnatish
-    loop.run_until_complete(set_webhook())
-
-    flask_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
-
-if __name__ == "__main__":
-    main()
