@@ -3,9 +3,9 @@ import re
 import html
 import zipfile
 import logging
-import asyncio
 from io import BytesIO
 from datetime import datetime
+import asyncio
 
 import qrcode
 from flask import Flask, request
@@ -139,11 +139,12 @@ tg_app = Application.builder().token(BOT_TOKEN).build()
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
-# Webhook route
+# Webhook route (synchronous)
 @flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.json, tg_app.bot)
-    loop.create_task(tg_app.process_update(update))
+    # Synchronous tarzda update’ni ishlatish
+    loop.run_until_complete(tg_app.process_update(update))
     return "OK"
 
 # Webhook set qilish
