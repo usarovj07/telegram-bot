@@ -135,11 +135,14 @@ async def getdata(update: Update, context: ContextTypes.DEFAULT_TYPE):
 flask_app = Flask(__name__)
 tg_app = Application.builder().token(BOT_TOKEN).build()
 
+# Yangi event loop
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
 # Webhook route
 @flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.json, tg_app.bot)
-    loop = asyncio.get_event_loop()
     loop.create_task(tg_app.process_update(update))
     return "OK"
 
@@ -158,7 +161,6 @@ def main():
     tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr))
 
     # Webhook o‘rnatish
-    loop = asyncio.get_event_loop()
     loop.run_until_complete(set_webhook())
 
     flask_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
