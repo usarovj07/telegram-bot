@@ -139,7 +139,8 @@ tg_app = Application.builder().token(BOT_TOKEN).build()
 @flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.json, tg_app.bot)
-    asyncio.run(tg_app.process_update(update))
+    loop = asyncio.get_event_loop()
+    loop.create_task(tg_app.process_update(update))
     return "OK"
 
 # Webhook set qilish
@@ -156,7 +157,10 @@ def main():
     tg_app.add_handler(CommandHandler("getdata", getdata))
     tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, generate_qr))
 
-    asyncio.run(set_webhook())
+    # Webhook o‘rnatish
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())
+
     flask_app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
 
 if __name__ == "__main__":
